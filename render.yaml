@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: remote-browser
+    env: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: VNC_PASSWORD
+        sync: false
+      - key: START_URL
+        value: https://www.google.com
+      - key: RESOLUTION
+        value: 1280x800x24
