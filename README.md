@@ -1,84 +1,36 @@
-# Sandboxed Remote Browser (Render-ready)
+# Remote Apple Fruit — Remote Linux Device
 
-A self-hosted "browser in the cloud": Chromium runs inside an isolated Docker
-container, and you interact with it through your own browser via noVNC —
-nothing the sites you visit do reaches your actual device. Useful for opening
-untrusted links, testing suspicious URLs, or just keeping browsing off your
-endpoint.
+This project is now a remote Linux device, not a remote browser.
 
-## How it works
-- `Xvfb` creates a virtual display inside the container.
-- `Chromium` renders into that virtual display.
-- `x11vnc` shares the display over VNC.
-- `websockify` + `noVNC` expose that VNC session as a plain web page, so no
-  VNC client is needed — just a browser tab.
+A lightweight Linux desktop runs in Docker and is controlled from a normal web browser through noVNC.
 
-Everything is served on a single HTTP port, which is what Render (and most
-PaaS platforms) expect from a web service.
+## Architecture
+- Linux desktop: Xvfb + Fluxbox
+- Apps: Terminal (xterm) and File Manager (Thunar)
+- Remote display/control: x11vnc + noVNC + WebSocket bridge
+- Frontend: GitHub Pages launcher
+- Backend: Docker-capable VPS or other host
 
-## Deploy to Render
-1. Push this folder to a new GitHub repo.
-2. In Render: **New → Web Service** and connect the repo (it auto-detects the
-   `Dockerfile`), or **New → Blueprint** to use the included `render.yaml`.
-3. Set the `VNC_PASSWORD` environment variable to something strong. This is
-   what protects the session — without it, anyone with your Render URL can
-   use the browser.
-4. Pick at least the **Starter** plan. Chromium plus a virtual display needs
-   more RAM/CPU than the free tier's 512MB usually allows; on the free plan
-   expect crash-looping.
-5. Deploy. Once live, open the Render URL — it loads and auto-connects
-   (prompting for your password if you set one).
+GitHub Pages cannot run the Linux device itself; it only hosts the static launcher.
 
-## Configuration
-All environment variables are optional except `VNC_PASSWORD`:
+## Run locally
 
-| Variable       | Purpose                                   | Default                    |
-|----------------|--------------------------------------------|-----------------------------|
-| `VNC_PASSWORD` | Protects the session — **set this**        | none (unprotected)          |
-| `START_URL`    | Page Chromium opens on launch              | `https://www.google.com`    |
-| `RESOLUTION`   | Virtual display size                       | `1280x800x24`                |
+    docker compose up --build
 
-## Local testing
-```bash
-docker compose up --build
-```
 Then open http://localhost:8080.
 
-## Security notes — read before exposing this publicly
-- Chromium runs with `--no-sandbox` because container runtimes typically
-  block the syscalls Chromium's own internal sandbox needs. The isolation
-  here comes from the **container boundary**, not from Chromium — don't treat
-  this as hardened against a determined attacker escaping the container.
-- This is a single long-lived container: history, cookies, and downloads
-  persist between visits until the service restarts. For real per-session
-  isolation, redeploy/restart between uses, or extend this to spin up a
-  fresh container per session.
-- Always set `VNC_PASSWORD`. An open remote browser is effectively an open
-  proxy — it can be abused to browse anonymously through your server.
-- If you only need this for a known set of destinations, add egress
-  filtering so the container can't reach arbitrary sites.
-- For production-grade remote browser isolation (per-session containers,
-  DLP, clipboard/file-transfer controls, audit logging), a purpose-built
-  product (e.g. Menlo Security, Cloudflare Browser Isolation, Kasm
-  Workspaces) will do more than this reference setup.
+## Configuration
+- PORT: HTTP/noVNC port, default 8080
+- VNC_PASSWORD: password for the VNC session; set this before exposing the service
+- RESOLUTION: virtual display size, default 1280x800x24
 
-## Troubleshooting
-- **Build fails to find `chromium`**: make sure the base image is Debian
-  (`bookworm-slim`), not Ubuntu — Ubuntu's `chromium-browser` package is a
-  snap stub that doesn't work in containers.
-- **Service keeps restarting on Render**: almost always memory. Bump the
-  plan or lower `RESOLUTION`.
-- **Blank/black screen in the browser**: give it a few extra seconds on
-  first load — Xvfb, Chromium, and the VNC bridge start in sequence.
+## Hosting
+For a useful remote device, use a Docker-capable VPS with at least 2 GB RAM. More RAM/CPU allows more desktop applications and smoother operation.
 
-## Repo layout
-```
-.
-├── Dockerfile
-├── entrypoint.sh
-├── render.yaml
-├── docker-compose.yml
-├── web/
-│   └── index.html
-└── README.md
-```
+## GitHub Pages
+The docs/ folder contains a static launcher. Set REMOTE_DEVICE_URL in docs/index.html to the HTTPS URL of your device server, then deploy the Pages workflow.
+
+Because GitHub Pages is HTTPS, the backend should also be HTTPS so the browser can establish a secure WebSocket connection.
+
+## Security
+Always set a strong VNC_PASSWORD. Do not expose an unauthenticated remote desktop to the public internet. For public deployment, use HTTPS and an authentication layer.
