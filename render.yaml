@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: remote-device
+    name: remote-browser
     env: docker
     plan: free
     region: oregon
